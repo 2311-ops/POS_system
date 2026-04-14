@@ -16,7 +16,11 @@ namespace FashionPOS.ViewModels
         public string Username
         {
             get => _username;
-            set => SetProperty(ref _username, value);
+            set
+            {
+                if (SetProperty(ref _username, value) && !string.IsNullOrWhiteSpace(ErrorMessage))
+                    ErrorMessage = string.Empty;
+            }
         }
 
         public string ErrorMessage
@@ -180,6 +184,8 @@ namespace FashionPOS.ViewModels
                 // Refresh data if needed
                 if (CurrentView is DashboardViewModel dashVM)
                     dashVM.Refresh();
+                else if (CurrentView is POSViewModel posVM)
+                    posVM.LoadProducts();
                 else if (CurrentView is InventoryViewModel invVM)
                     invVM.LoadProducts();
                 else if (CurrentView is ReportsViewModel repVM)

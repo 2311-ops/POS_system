@@ -17,11 +17,87 @@ namespace FashionPOS.Services
     {
         private readonly DatabaseContext _context;
         private readonly ProductService _productService;
+        private static readonly string[] ApprovedCategoryNames =
+        {
+            "Cardigans & Kaftans",
+            "Dresses",
+            "Jackets & Coats",
+            "Jumpsuits",
+            "Sets",
+            "Shirts"
+        };
 
         public ImportService(DatabaseContext context, ProductService productService)
         {
             _context = context;
             _productService = productService;
+        }
+
+        private Dictionary<string, int> EnsureApprovedCategoriesAndGetMap(Microsoft.Data.Sqlite.SqliteConnection conn)
+        {
+            foreach (var cat in ApprovedCategoryNames)
+                conn.Execute("INSERT OR IGNORE INTO Categories (Name) VALUES (@cat)", new { cat });
+
+            var allowed = conn.Query<Category>(
+                    "SELECT Id, Name FROM Categories WHERE Name IN @names",
+                    new { names = ApprovedCategoryNames })
+                .ToDictionary(c => c.Name, c => c.Id, StringComparer.OrdinalIgnoreCase);
+
+            if (allowed.TryGetValue("Sets", out var defaultCategoryId))
+            {
+                conn.Execute(@"
+                    UPDATE Products
+                    SET CategoryId = @defaultCategoryId
+                    WHERE IsActive = 1
+                      AND (CategoryId IS NULL OR CategoryId NOT IN (
+                          SELECT Id FROM Categories WHERE Name IN @names
+                      ));",
+                    new { defaultCategoryId, names = ApprovedCategoryNames });
+            }
+
+            conn.Execute(@"
+                UPDATE Products
+                SET CategoryId = NULL
+                WHERE IsActive = 0
+                  AND CategoryId IS NOT NULL
+                  AND CategoryId NOT IN (
+                      SELECT Id FROM Categories WHERE Name IN @names
+                  );",
+                new { names = ApprovedCategoryNames });
+
+            conn.Execute("DELETE FROM Categories WHERE Name NOT IN @names", new { names = ApprovedCategoryNames });
+            return allowed;
+        }
+
+        private static int? ResolveApprovedCategoryId(string? typeOrCategory, string? tags, Dictionary<string, int> allowedCategories)
+        {
+            if (string.IsNullOrWhiteSpace(typeOrCategory) && string.IsNullOrWhiteSpace(tags))
+                return null;
+
+            var categoryText = typeOrCategory?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(categoryText))
+            {
+                var exact = allowedCategories.Keys.FirstOrDefault(k =>
+                    string.Equals(k, categoryText, StringComparison.OrdinalIgnoreCase));
+                if (exact != null)
+                    return allowedCategories[exact];
+            }
+
+            var combined = $"{typeOrCategory} {tags}".ToLowerInvariant();
+            if (combined.Contains("kaftan") || combined.Contains("cardigan"))
+                return allowedCategories["Cardigans & Kaftans"];
+            if (combined.Contains("dress"))
+                return allowedCategories["Dresses"];
+            if (combined.Contains("jacket") || combined.Contains("coat") || combined.Contains("blazer"))
+                return allowedCategories["Jackets & Coats"];
+            if (combined.Contains("jumpsuit") || combined.Contains("romper"))
+                return allowedCategories["Jumpsuits"];
+            if (combined.Contains("set") || combined.Contains("coord") || combined.Contains("matching"))
+                return allowedCategories["Sets"];
+            if (combined.Contains("shirt") || combined.Contains("blouse") || combined.Contains("top"))
+                return allowedCategories["Shirts"];
+
+            return allowedCategories.TryGetValue("Sets", out var fallback) ? fallback : (int?)null;
         }
 
         /// <summary>
@@ -33,6 +109,9 @@ namespace FashionPOS.Services
 
             try
             {
+                using var categoryConn = _context.CreateConnection();
+                var allowedCategories = EnsureApprovedCategoriesAndGetMap(categoryConn);
+
                 using (var workbook = new XLWorkbook(filePath))
                 {
                     var worksheet = workbook.Worksheet(1);
@@ -59,29 +138,7 @@ namespace FashionPOS.Services
                             decimal.TryParse(sellingPriceStr, out decimal sellingPrice);
                             int.TryParse(stockStr, out int stock);
 
-                            // Auto-create category if needed
-                            int? categoryId = null;
-                            if (!string.IsNullOrEmpty(category))
-                            {
-                                using (var conn = _context.CreateConnection())
-                                {
-                                    var cat = conn.QuerySingleOrDefault<Category>(
-                                        "SELECT * FROM Categories WHERE Name = @Name",
-                                        new { Name = category }
-                                    );
-
-                                    if (cat == null)
-                                    {
-                                        conn.Execute("INSERT INTO Categories (Name) VALUES (@Name)", new { Name = category });
-                                        cat = conn.QuerySingle<Category>(
-                                            "SELECT * FROM Categories WHERE Name = @Name",
-                                            new { Name = category }
-                                        );
-                                    }
-
-                                    categoryId = cat.Id;
-                                }
-                            }
+                            int? categoryId = ResolveApprovedCategoryId(category, null, allowedCategories);
 
                             // Upsert by SKU
                             var product = new Models.Product
@@ -151,6 +208,9 @@ namespace FashionPOS.Services
 
             try
             {
+                using var categoryConn = _context.CreateConnection();
+                var allowedCategories = EnsureApprovedCategoriesAndGetMap(categoryConn);
+
                 var lines = File.ReadAllLines(filePath);
                 if (lines.Length < 1)
                     return result;
@@ -190,29 +250,7 @@ namespace FashionPOS.Services
                         decimal.TryParse(sellingPriceStr, out decimal sellingPrice);
                         int.TryParse(stockStr, out int stock);
 
-                        // Auto-create category if needed
-                        int? categoryId = null;
-                        if (!string.IsNullOrEmpty(category))
-                        {
-                            using (var conn = _context.CreateConnection())
-                            {
-                                var cat = conn.QuerySingleOrDefault<Category>(
-                                    "SELECT * FROM Categories WHERE Name = @Name",
-                                    new { Name = category }
-                                );
-
-                                if (cat == null)
-                                {
-                                    conn.Execute("INSERT INTO Categories (Name) VALUES (@Name)", new { Name = category });
-                                    cat = conn.QuerySingle<Category>(
-                                        "SELECT * FROM Categories WHERE Name = @Name",
-                                        new { Name = category }
-                                    );
-                                }
-
-                                categoryId = cat.Id;
-                            }
-                        }
+                        int? categoryId = ResolveApprovedCategoryId(category, null, allowedCategories);
 
                         var product = new Models.Product
                         {
@@ -277,133 +315,127 @@ namespace FashionPOS.Services
         public Models.ImportResult ImportFromShopifyCsv(string filePath, int userId)
         {
             var result = new Models.ImportResult();
-            var lines = ParseCsvFile(filePath);
-            if (lines.Length < 2) return result;
 
-            var headers = ParseCsvLine(lines[0]);
+            var allRows = ParseShopifyCsvFile(filePath);
+            if (allRows.Count < 2)
+                return result;
 
-            int Col(string name) => Array.FindIndex(headers,
-                h => h.Trim().Equals(name, StringComparison.OrdinalIgnoreCase));
+            var headers = allRows[0];
+            var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < headers.Count; i++)
+                headerMap[headers[i].Trim()] = i;
 
-            int idxTitle = Col("Title");
-            int idxSKU = Col("Variant SKU");
-            int idxPrice = Col("Variant Price");
-            int idxCost = Col("Cost per item");
-            int idxQty = Col("Variant Inventory Qty");
-            int idxBarcode = Col("Variant Barcode");
-            int idxType = Col("Type");
-            int idxOpt1Name = Col("Option1 Name");
-            int idxOpt1Val = Col("Option1 Value");
-            int idxOpt2Name = Col("Option2 Name");
-            int idxOpt2Val = Col("Option2 Value");
-            int idxOpt3Name = Col("Option3 Name");
-            int idxOpt3Val = Col("Option3 Value");
-            int idxColor = Col("Color (product.metafields.shopify.color-pattern)");
-            int idxSize = Col("Size (product.metafields.shopify.size)");
-            int idxStatus = Col("Status");
+            string H(List<string> row, string col)
+            {
+                if (!headerMap.TryGetValue(col, out var idx))
+                    return "";
+                if (idx >= row.Count)
+                    return "";
+                return row[idx].Trim().Trim('"');
+            }
 
             using var conn = _context.CreateConnection();
-            var categories = conn.Query<Category>("SELECT * FROM Categories")
-                .ToDictionary(c => c.Name.ToLower(), c => c.Id);
+            var allowedCategories = EnsureApprovedCategoriesAndGetMap(conn);
 
             string currentTitle = "";
             string currentType = "";
+            string currentTags = "";
 
-            for (int i = 1; i < lines.Length; i++)
+            for (int i = 1; i < allRows.Count; i++)
             {
                 try
                 {
-                    var cols = ParseCsvLine(lines[i]);
-                    if (cols.Length < 5) continue;
+                    var row = allRows[i];
+                    if (row.Count < 5)
+                        continue;
 
-                    string Get(int idx) => idx >= 0 && idx < cols.Length
-                        ? CleanShopifyText(cols[idx]) : "";
-
-                    var title = Get(idxTitle);
+                    var title = H(row, "Title");
                     if (!string.IsNullOrWhiteSpace(title))
                     {
                         currentTitle = title;
-                        currentType = Get(idxType);
+                        currentType = H(row, "Type");
+                        currentTags = H(row, "Tags");
                     }
-                    if (string.IsNullOrWhiteSpace(currentTitle)) continue;
+                    if (string.IsNullOrWhiteSpace(currentTitle))
+                        continue;
 
-                    var status = Get(idxStatus);
-                    if (status.Equals("draft", StringComparison.OrdinalIgnoreCase)) continue;
+                    var status = H(row, "Status");
+                    if (status.Equals("draft", StringComparison.OrdinalIgnoreCase))
+                        continue;
 
                     string size = "";
                     string color = "";
+                    var opt1Name = H(row, "Option1 Name").ToLowerInvariant();
+                    var opt2Name = H(row, "Option2 Name").ToLowerInvariant();
+                    var opt3Name = H(row, "Option3 Name").ToLowerInvariant();
 
-                    var opt1Name = Get(idxOpt1Name).ToLower();
-                    var opt2Name = Get(idxOpt2Name).ToLower();
-                    var opt3Name = Get(idxOpt3Name).ToLower();
-
-                    if (opt1Name.Contains("size")) size = Get(idxOpt1Val);
-                    else if (opt2Name.Contains("size")) size = Get(idxOpt2Val);
-                    else if (opt3Name.Contains("size")) size = Get(idxOpt3Val);
+                    if (opt1Name.Contains("size"))
+                        size = H(row, "Option1 Value");
+                    else if (opt2Name.Contains("size"))
+                        size = H(row, "Option2 Value");
+                    else if (opt3Name.Contains("size"))
+                        size = H(row, "Option3 Value");
 
                     if (opt1Name.Contains("color") || opt1Name.Contains("colour"))
-                        color = Get(idxOpt1Val);
+                        color = H(row, "Option1 Value");
                     else if (opt2Name.Contains("color") || opt2Name.Contains("colour"))
-                        color = Get(idxOpt2Val);
+                        color = H(row, "Option2 Value");
                     else if (opt3Name.Contains("color") || opt3Name.Contains("colour"))
-                        color = Get(idxOpt3Val);
+                        color = H(row, "Option3 Value");
 
-                    if (string.IsNullOrWhiteSpace(size)) size = Get(idxSize);
-                    if (string.IsNullOrWhiteSpace(color)) color = Get(idxColor);
+                    if (string.IsNullOrWhiteSpace(size))
+                        size = H(row, "Size (product.metafields.shopify.size)");
+                    if (string.IsNullOrWhiteSpace(color))
+                        color = H(row, "Color (product.metafields.shopify.color-pattern)");
 
-                    var variantSuffix = new[] { size, color }
+                    var parts = new[] { size, color }
                         .Where(s => !string.IsNullOrWhiteSpace(s))
                         .ToList();
-                    var productName = variantSuffix.Any()
-                        ? $"{currentTitle} — {string.Join(" / ", variantSuffix)}"
+                    var productName = parts.Any()
+                        ? $"{currentTitle} \u2014 {string.Join(" / ", parts)}"
                         : currentTitle;
 
-                    int? categoryId = null;
-                    if (!string.IsNullOrWhiteSpace(currentType))
-                    {
-                        var catKey = currentType.ToLower();
-                        if (!categories.TryGetValue(catKey, out var catId))
-                        {
-                            catId = conn.ExecuteScalar<int>(
-                                "INSERT INTO Categories (Name) VALUES (@name); SELECT last_insert_rowid();",
-                                new { name = currentType });
-                            categories[catKey] = catId;
-                        }
-                        categoryId = catId;
-                    }
+                    var priceStr = H(row, "Variant Price");
+                    var costStr = H(row, "Cost per item");
+                    var qtyStr = H(row, "Variant Inventory Qty");
 
-                    decimal.TryParse(Get(idxPrice),
+                    decimal.TryParse(priceStr,
                         System.Globalization.NumberStyles.Any,
                         System.Globalization.CultureInfo.InvariantCulture, out var price);
-                    decimal.TryParse(Get(idxCost),
+                    decimal.TryParse(costStr,
                         System.Globalization.NumberStyles.Any,
                         System.Globalization.CultureInfo.InvariantCulture, out var cost);
-                    int.TryParse(Get(idxQty), out var qty);
+                    int.TryParse(qtyStr, out var qty);
 
-                    var sku = Get(idxSKU);
+                    var sku = H(row, "Variant SKU");
+                    var barcode = H(row, "Variant Barcode");
 
                     var product = new Product
                     {
                         Name = productName,
                         SKU = string.IsNullOrWhiteSpace(sku) ? null : sku,
-                        CategoryId = categoryId,
+                        CategoryId = ResolveApprovedCategoryId(currentType, currentTags, allowedCategories),
                         Size = string.IsNullOrWhiteSpace(size) ? null : size,
                         Color = string.IsNullOrWhiteSpace(color) ? null : color,
                         SellingPrice = price,
                         CostPrice = cost,
                         StockQuantity = Math.Max(0, qty),
-                        Barcode = Get(idxBarcode),
+                        Barcode = string.IsNullOrWhiteSpace(barcode) ? null : barcode,
                         LowStockThreshold = 5,
-                        IsActive = true,
+                        IsActive = true
                     };
 
                     Product? existing = null;
                     if (!string.IsNullOrWhiteSpace(sku))
+                    {
                         existing = conn.QueryFirstOrDefault<Product>(
                             "SELECT Id FROM Products WHERE SKU=@sku", new { sku });
-                    else
+                    }
+                    if (existing == null)
+                    {
                         existing = conn.QueryFirstOrDefault<Product>(
                             "SELECT Id FROM Products WHERE Name=@name", new { name = productName });
+                    }
 
                     if (existing != null)
                     {
@@ -427,81 +459,21 @@ namespace FashionPOS.Services
             return result;
         }
 
-        private static string[] ParseCsvFile(string filePath)
+        private List<List<string>> ParseShopifyCsvFile(string filePath)
         {
+            var rows = new List<List<string>>();
             var content = File.ReadAllText(filePath, Encoding.UTF8);
-            var rows = new List<string>();
+            var fields = new List<string>();
             var current = new StringBuilder();
             bool inQuotes = false;
 
             for (int i = 0; i < content.Length; i++)
             {
                 char c = content[i];
+
                 if (c == '"')
                 {
                     if (inQuotes && i + 1 < content.Length && content[i + 1] == '"')
-                    {
-                        current.Append('"');
-                        i++;
-                    }
-                    else
-                    {
-                        inQuotes = !inQuotes;
-                        current.Append(c);
-                    }
-                }
-                else if ((c == '\r' || c == '\n') && !inQuotes)
-                {
-                    if (c == '\r' && i + 1 < content.Length && content[i + 1] == '\n')
-                        i++;
-
-                    rows.Add(current.ToString());
-                    current.Clear();
-                }
-                else
-                {
-                    current.Append(c);
-                }
-            }
-
-            if (current.Length > 0)
-                rows.Add(current.ToString());
-
-            return rows.ToArray();
-        }
-
-        private static string CleanShopifyText(string raw)
-        {
-            if (string.IsNullOrWhiteSpace(raw))
-                return string.Empty;
-
-            var cleaned = raw.Trim();
-            cleaned = cleaned.Trim('"');
-
-            // Strip simple HTML tags and encoded characters.
-            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, "<[^>]+>", string.Empty);
-            cleaned = System.Net.WebUtility.HtmlDecode(cleaned);
-
-            // Remove common Shopify metafield header noise.
-            cleaned = cleaned.Replace("product.metafields.shopify.", string.Empty, StringComparison.OrdinalIgnoreCase);
-            cleaned = cleaned.Replace("Body (HTML)", string.Empty, StringComparison.OrdinalIgnoreCase);
-            cleaned = cleaned.Replace("Title", string.Empty, StringComparison.OrdinalIgnoreCase);
-
-            return cleaned.Trim();
-        }
-
-        private static string[] ParseCsvLine(string line)
-        {
-            var fields = new List<string>();
-            bool inQuotes = false;
-            var current = new System.Text.StringBuilder();
-
-            for (int i = 0; i < line.Length; i++)
-            {
-                char c = line[i];
-                if (c == '"')
-                {
-                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
                     {
                         current.Append('"');
                         i++;
@@ -516,14 +488,27 @@ namespace FashionPOS.Services
                     fields.Add(current.ToString());
                     current.Clear();
                 }
+                else if (c == '\n' && !inQuotes)
+                {
+                    var val = current.ToString().TrimEnd('\r');
+                    fields.Add(val);
+                    current.Clear();
+                    if (fields.Any(f => !string.IsNullOrWhiteSpace(f)))
+                        rows.Add(new List<string>(fields));
+                    fields.Clear();
+                }
                 else
                 {
                     current.Append(c);
                 }
             }
 
-            fields.Add(current.ToString());
-            return fields.ToArray();
+            if (current.Length > 0)
+                fields.Add(current.ToString());
+            if (fields.Any(f => !string.IsNullOrWhiteSpace(f)))
+                rows.Add(new List<string>(fields));
+
+            return rows;
         }
 
         /// <summary>
@@ -862,3 +847,4 @@ namespace FashionPOS.Services
         }
     }
 }
+

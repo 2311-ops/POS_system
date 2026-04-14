@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Input;
 using FashionPOS.Helpers;
 using FashionPOS.Models;
 using FashionPOS.Services;
@@ -74,6 +75,7 @@ namespace FashionPOS.ViewModels
         public RelayCommand DecrementQtyCommand { get; }
         public RelayCommand ClearCartCommand { get; }
         public RelayCommand CompleteSaleCommand { get; }
+        public Action? OnSaleCompleted { get; set; }
 
         public POSViewModel(ProductService productService, SaleService saleService,
                            InvoiceService invoiceService, EventService eventService, AuthService authService)
@@ -246,6 +248,7 @@ namespace FashionPOS.ViewModels
 
                 ExecuteClearCart();
                 LoadProducts();
+                OnSaleCompleted?.Invoke();
             }
             catch (Exception ex)
             {
@@ -373,18 +376,27 @@ namespace FashionPOS.ViewModels
 
         private void DeleteProduct(object? parameter)
         {
-            if (parameter is Product product)
+            if (parameter is not Product product)
+                return;
+
+            var confirm = MessageBox.Show(
+                $"Delete '{product.Name}'?\n\nThis cannot be undone.",
+                "Confirm Delete",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (confirm != MessageBoxResult.Yes)
+                return;
+
+            try
             {
-                try
-                {
-                    _productService.Delete(product.Id);
-                    StatusMessage = "Product deleted successfully";
-                    LoadProducts();
-                }
-                catch (Exception ex)
-                {
-                    StatusMessage = $"Error deleting product: {ex.Message}";
-                }
+                _productService.Delete(product.Id);
+                StatusMessage = $"Deleted: {product.Name}";
+                LoadProducts();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error deleting product: {ex.Message}";
             }
         }
 
@@ -488,7 +500,8 @@ namespace FashionPOS.ViewModels
             IsLoading = true;
             try
             {
-                Stats = _saleService.GetDashboardStats();
+                var stats = _saleService.GetDashboardStats();
+                Stats = stats ?? new DashboardStats();
             }
             finally
             {
@@ -703,13 +716,21 @@ namespace FashionPOS.ViewModels
         public bool HasActiveEvent
         {
             get => _hasActiveEvent;
-            set => SetProperty(ref _hasActiveEvent, value);
+            set
+            {
+                if (SetProperty(ref _hasActiveEvent, value))
+                    CommandManager.InvalidateRequerySuggested();
+            }
         }
 
         public string EventName
         {
             get => _eventName;
-            set => SetProperty(ref _eventName, value);
+            set
+            {
+                if (SetProperty(ref _eventName, value))
+                    CommandManager.InvalidateRequerySuggested();
+            }
         }
 
         public string EventLocation

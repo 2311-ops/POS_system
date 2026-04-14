@@ -118,6 +118,12 @@ namespace FashionPOS
             if (user.CanManageUsers)
                 usersVM = new UsersViewModel(_userService!);
 
+            posVM.OnSaleCompleted = () =>
+            {
+                eventVM.Refresh();
+                dashboardVM?.Refresh();
+            };
+
             var mainVM = new MainViewModel(_authService!)
             {
                 DashboardViewModel = dashboardVM,
@@ -173,6 +179,7 @@ namespace FashionPOS
                             if (isShopify)
                             {
                                 var result = _importService!.ImportFromShopifyCsv(path, _authService!.CurrentUser!.Id);
+                                inventoryVM.LoadProducts();
                                 MessageBox.Show(
                                     $"✓ Shopify CSV import complete!\n\n" +
                                     $"  Added:    {result.Imported}\n" +
@@ -186,6 +193,7 @@ namespace FashionPOS
                             else
                             {
                                 var result = _importService!.ImportFromCsv(path, _authService!.CurrentUser!.Id);
+                                inventoryVM.LoadProducts();
                                 MessageBox.Show(
                                     $"CSV import: {result.Imported} added, {result.Updated} updated, {result.Failed} failed.",
                                     "Done", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -209,6 +217,7 @@ namespace FashionPOS
                     {
                         var result = await _importService!.ImportFromShopifyAsync(domain, token,
                             _authService!.CurrentUser!.Id);
+                        inventoryVM.LoadProducts();
 
                         if (result.Errors.Any())
                         {

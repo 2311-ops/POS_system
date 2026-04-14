@@ -83,46 +83,22 @@
                     <StackPanel Grid.Column="0">
                         <TextBlock Text="COLLECTION" FontSize="10" Foreground="#607090"
                                    FontWeight="Bold" Margin="0,0,0,6"/>
-                        <ComboBox x:Name="CollectionBox"
-                                  SelectedValuePath="Id"
+                        <ComboBox x:Name="CollectionCombo"
+                                  Style="{StaticResource ModernComboBox}"
                                   DisplayMemberPath="Name"
-                                  Height="44" Padding="12,10"
-                                  FontSize="13"
-                                  Background="#0D1526"
-                                  Foreground="White"
-                                  BorderBrush="#1E3050" BorderThickness="1"
-                                  Margin="0,0,0,0">
-                            <ComboBox.Resources>
-                                <Style TargetType="ComboBoxItem">
-                                    <Setter Property="Background" Value="#0D1526"/>
-                                    <Setter Property="Foreground" Value="White"/>
-                                    <Setter Property="Padding" Value="12,8"/>
-                                    <Setter Property="FontSize" Value="13"/>
-                                </Style>
-                            </ComboBox.Resources>
-                        </ComboBox>
+                                  SelectedValuePath="Id"
+                                  Height="44"
+                                  HorizontalAlignment="Stretch" />
                     </StackPanel>
                     <StackPanel Grid.Column="2">
                         <TextBlock Text="CATEGORY" FontSize="10" Foreground="#607090"
                                    FontWeight="Bold" Margin="0,0,0,6"/>
-                        <ComboBox x:Name="CategoryBox"
-                                  SelectedValuePath="Id"
+                        <ComboBox x:Name="CategoryCombo"
+                                  Style="{StaticResource ModernComboBox}"
                                   DisplayMemberPath="Name"
-                                  Height="44" Padding="12,10"
-                                  FontSize="13"
-                                  Background="#0D1526"
-                                  Foreground="White"
-                                  BorderBrush="#1E3050" BorderThickness="1"
-                                  Margin="0,0,0,0">
-                            <ComboBox.Resources>
-                                <Style TargetType="ComboBoxItem">
-                                    <Setter Property="Background" Value="#0D1526"/>
-                                    <Setter Property="Foreground" Value="White"/>
-                                    <Setter Property="Padding" Value="12,8"/>
-                                    <Setter Property="FontSize" Value="13"/>
-                                </Style>
-                            </ComboBox.Resources>
-                        </ComboBox>
+                                  SelectedValuePath="Id"
+                                  Height="44"
+                                  HorizontalAlignment="Stretch" />
                     </StackPanel>
                 </Grid>
 

@@ -29,5 +29,22 @@ namespace FashionPOS
                 e.Handled = true;
             }
         }
+
+        private void PasswordInput_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                SignInButton_Click(sender, e);
+                e.Handled = true;
+            }
+        }
+
+        private void PasswordInput_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is LoginViewModel vm && !string.IsNullOrWhiteSpace(vm.ErrorMessage))
+            {
+                vm.ErrorMessage = string.Empty;
+            }
+        }
     }
 }

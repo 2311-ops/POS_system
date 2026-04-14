@@ -67,6 +67,37 @@ namespace FashionPOS.Converters
     }
 
     /// <summary>
+    /// Extracts a readable display value for ComboBox items.
+    /// Falls back to Name when present, then ToString().
+    /// </summary>
+    public class ComboBoxDisplayValueConverter : IValueConverter
+    {
+        public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is null)
+                return string.Empty;
+
+            if (value is string str)
+                return str;
+
+            var nameProperty = value.GetType().GetProperty("Name");
+            if (nameProperty?.CanRead == true)
+            {
+                var nameValue = nameProperty.GetValue(value);
+                if (nameValue is not null)
+                    return nameValue.ToString() ?? string.Empty;
+            }
+
+            return value.ToString() ?? string.Empty;
+        }
+
+        public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
     /// Converts string to Visibility (null/empty = Collapsed, else = Visible).
     /// </summary>
     public class StringToVisibilityConverter : IValueConverter

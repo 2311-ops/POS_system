@@ -119,6 +119,7 @@ namespace FashionPOS.Services
             using (var connection = _context.CreateConnection())
             {
                 product.UpdatedAt = DateTime.Now;
+                product.StockQuantity = Math.Max(0, product.StockQuantity);
 
                 if (product.Id == 0)
                 {
@@ -132,10 +133,37 @@ namespace FashionPOS.Services
                     ";
 
                     var id = connection.QuerySingle<int>(sql, product);
+
+                    // Keep stock ledger aligned with on-hand quantity from the first write.
+                    if (product.StockQuantity != 0)
+                    {
+                        var userId = connection.QuerySingleOrDefault<int?>(
+                            "SELECT Id FROM Users WHERE IsActive = 1 ORDER BY CASE WHEN Username = 'admin' THEN 0 ELSE 1 END, Id LIMIT 1");
+
+                        if (userId.HasValue)
+                        {
+                            connection.Execute(
+                                @"INSERT INTO StockMovements (ProductId, UserId, Type, Quantity, Note, CreatedAt)
+                                  VALUES (@ProductId, @UserId, 'Adjustment', @Quantity, @Note, @CreatedAt)",
+                                new
+                                {
+                                    ProductId = id,
+                                    UserId = userId.Value,
+                                    Quantity = product.StockQuantity,
+                                    Note = "Initial stock on product creation",
+                                    CreatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+                                });
+                        }
+                    }
+
                     return id;
                 }
                 else
                 {
+                    var previousStock = connection.QuerySingleOrDefault<int?>(
+                        "SELECT StockQuantity FROM Products WHERE Id = @Id",
+                        new { product.Id });
+
                     var sql = @"
                         UPDATE Products SET
                             Name = @Name, SKU = @SKU, CollectionId = @CollectionId, CategoryId = @CategoryId,
@@ -147,6 +175,32 @@ namespace FashionPOS.Services
                     ";
 
                     connection.Execute(sql, product);
+
+                    if (previousStock.HasValue)
+                    {
+                        var delta = product.StockQuantity - previousStock.Value;
+                        if (delta != 0)
+                        {
+                            var userId = connection.QuerySingleOrDefault<int?>(
+                                "SELECT Id FROM Users WHERE IsActive = 1 ORDER BY CASE WHEN Username = 'admin' THEN 0 ELSE 1 END, Id LIMIT 1");
+
+                            if (userId.HasValue)
+                            {
+                                connection.Execute(
+                                    @"INSERT INTO StockMovements (ProductId, UserId, Type, Quantity, Note, CreatedAt)
+                                      VALUES (@ProductId, @UserId, 'Adjustment', @Quantity, @Note, @CreatedAt)",
+                                    new
+                                    {
+                                        ProductId = product.Id,
+                                        UserId = userId.Value,
+                                        Quantity = delta,
+                                        Note = "Stock adjusted from product edit",
+                                        CreatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+                                    });
+                            }
+                        }
+                    }
+
                     return product.Id;
                 }
             }
@@ -206,11 +260,15 @@ namespace FashionPOS.Services
                     {
                         try
                         {
-                            connection.Execute(
-                                "UPDATE Products SET StockQuantity = StockQuantity + @Quantity WHERE Id = @ProductId",
+                            var affected = connection.Execute(
+                                @"UPDATE Products
+                                  SET StockQuantity = MAX(0, StockQuantity + @Quantity)
+                                  WHERE Id = @ProductId",
                                 new { Quantity = quantity, ProductId = productId },
-                                transaction
-                            );
+                                transaction);
+
+                            if (affected == 0)
+                                throw new InvalidOperationException("Product not found");
 
                             connection.Execute(
                                 @"INSERT INTO StockMovements (ProductId, UserId, Type, Quantity, Note, CreatedAt)

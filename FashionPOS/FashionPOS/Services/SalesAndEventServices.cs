@@ -28,7 +28,6 @@ namespace FashionPOS.Services
         private readonly DatabaseContext _context;
         private readonly ProductService _productService;
         private readonly AuthService _authService;
-        private static Random _random = new Random();
 
         public SaleService(DatabaseContext context, ProductService productService, AuthService authService)
         {
@@ -72,9 +71,9 @@ namespace FashionPOS.Services
                 {
                     try
                     {
-                        // Generate sale number (EV prefix for events)
+                        // GUID suffix avoids collisions during rapid consecutive sales.
                         string prefix = eventId.HasValue ? "EV" : "S";
-                        string saleNumber = $"{prefix}{DateTime.Now:yyyyMMddHHmmss}{_random.Next(100, 1000)}";
+                        string saleNumber = $"{prefix}{DateTime.Now:yyyyMMddHHmmss}{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
 
                         // Calculate totals
                         decimal totalAmount = cartItems.Sum(x => x.TotalPrice);
@@ -136,11 +135,15 @@ namespace FashionPOS.Services
                                 );
 
                                 // Update stock
-                                connection.Execute(
-                                    "UPDATE Products SET StockQuantity = StockQuantity - @Qty WHERE Id = @Id",
+                                var updatedRows = connection.Execute(
+                                    @"UPDATE Products
+                                      SET StockQuantity = MAX(0, StockQuantity - @Qty)
+                                      WHERE Id = @Id AND StockQuantity >= @Qty",
                                     new { Qty = item.Quantity, Id = item.Product?.Id },
-                                    transaction
-                                );
+                                    transaction);
+
+                                if (updatedRows == 0)
+                                    throw new InvalidOperationException($"Insufficient stock for {item.Product?.Name}");
 
                                 // Log stock movement
                                 connection.Execute(

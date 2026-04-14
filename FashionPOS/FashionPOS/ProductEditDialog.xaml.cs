@@ -19,8 +19,10 @@ namespace FashionPOS.Views
             InitializeComponent();
 
             Title = product == null ? "Add Product" : "Edit Product";
-            CollectionBox.ItemsSource = collections.ToList();
-            CategoryBox.ItemsSource = categories.ToList();
+            var collectionList = collections.ToList();
+            var categoryList = categories.ToList();
+            CollectionCombo.ItemsSource = collectionList;
+            CategoryCombo.ItemsSource = categoryList;
 
             _product = product != null
                 ? new Product
@@ -52,8 +54,8 @@ namespace FashionPOS.Views
 
             NameBox.Text = _product.Name;
             SkuBox.Text = _product.SKU ?? string.Empty;
-            CollectionBox.SelectedValue = _product.CollectionId;
-            CategoryBox.SelectedValue = _product.CategoryId;
+            CollectionCombo.SelectedValue = _product.CollectionId;
+            CategoryCombo.SelectedValue = _product.CategoryId;
             SizeBox.Text = _product.Size ?? string.Empty;
             ColorBox.Text = _product.Color ?? string.Empty;
             CostPriceBox.Text = _product.CostPrice.ToString(CultureInfo.InvariantCulture);
@@ -97,8 +99,8 @@ namespace FashionPOS.Views
 
             _product.Name = NameBox.Text.Trim();
             _product.SKU = string.IsNullOrWhiteSpace(SkuBox.Text) ? null : SkuBox.Text.Trim();
-            _product.CollectionId = CollectionBox.SelectedValue is int collectionId ? collectionId : null;
-            _product.CategoryId = CategoryBox.SelectedValue is int categoryId ? categoryId : null;
+            _product.CollectionId = CollectionCombo.SelectedValue is int collectionId ? collectionId : null;
+            _product.CategoryId = CategoryCombo.SelectedValue is int categoryId ? categoryId : null;
             _product.Size = string.IsNullOrWhiteSpace(SizeBox.Text) ? null : SizeBox.Text.Trim();
             _product.Color = string.IsNullOrWhiteSpace(ColorBox.Text) ? null : ColorBox.Text.Trim();
             _product.CostPrice = costPrice;

@@ -32,7 +32,7 @@ namespace FashionPOS.Data
 
         private void CreateTables(SqliteConnection connection)
         {
-            // Single batch execution of all CREATE TABLE statements
+            // Create tables first. Index creation is handled after schema upgrades.
             var sql = @"
                 CREATE TABLE IF NOT EXISTS Users (
                     Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -129,16 +129,30 @@ namespace FashionPOS.Data
                     Details TEXT,
                     CreatedAt TEXT NOT NULL DEFAULT (datetime('now'))
                 );
-
-                CREATE INDEX IF NOT EXISTS idx_products_collection ON Products(CollectionId);
-                CREATE INDEX IF NOT EXISTS idx_products_category ON Products(CategoryId);
-                CREATE INDEX IF NOT EXISTS idx_sales_date        ON Sales(CreatedAt);
-                CREATE INDEX IF NOT EXISTS idx_saleitems_sale    ON SaleItems(SaleId);
-                CREATE INDEX IF NOT EXISTS idx_stock_product     ON StockMovements(ProductId);
             ";
 
             connection.Execute(sql);
             EnsureProductSchema(connection);
+            EnsureIndexes(connection);
+        }
+
+        private void EnsureIndexes(SqliteConnection connection)
+        {
+            connection.Execute(@"
+                CREATE INDEX IF NOT EXISTS idx_products_category ON Products(CategoryId);
+                CREATE INDEX IF NOT EXISTS idx_sales_date        ON Sales(CreatedAt);
+                CREATE INDEX IF NOT EXISTS idx_saleitems_sale    ON SaleItems(SaleId);
+                CREATE INDEX IF NOT EXISTS idx_stock_product     ON StockMovements(ProductId);
+            ");
+
+            // Older DBs may not have CollectionId yet. Create this index only when the column exists.
+            var hasCollectionId = connection.QuerySingle<int>(
+                "SELECT COUNT(*) FROM pragma_table_info('Products') WHERE name = 'CollectionId'");
+
+            if (hasCollectionId > 0)
+            {
+                connection.Execute("CREATE INDEX IF NOT EXISTS idx_products_collection ON Products(CollectionId);");
+            }
         }
 
         private void EnsureProductSchema(SqliteConnection connection)
@@ -190,28 +204,71 @@ namespace FashionPOS.Data
                 try { connection.Execute(insertCollectionsSql, collection); } catch { }
             }
 
-            // Ensure default categories exist
-            var insertCategoriesSql = "INSERT OR IGNORE INTO Categories (Name) VALUES (@Name)";
-            var categories = new[]
+            // Replace the old category seed with exactly these 6
+            var correctCategories = new[]
             {
-                new { Name = "Cardigans & Kaftans" },
-                new { Name = "Dresses" },
-                new { Name = "Jackets & Coats" },
-                new { Name = "Jumpsuits" },
-                new { Name = "Sets" },
-                new { Name = "Shirts" }
+                "Cardigans & Kaftans",
+                "Dresses",
+                "Jackets & Coats",
+                "Jumpsuits",
+                "Sets",
+                "Shirts"
             };
-            foreach (var category in categories)
-            {
-                try { connection.Execute(insertCategoriesSql, category); } catch { }
-            }
 
-            // Try to remove old generic category placeholders
-            try
-            {
-                connection.Execute("DELETE FROM Categories WHERE Name IN ('Collections', 'Evening Wear and Categories')");
-            }
-            catch { }
+            // Ensure the 6 approved categories exist.
+            foreach (var cat in correctCategories)
+                connection.Execute("INSERT OR IGNORE INTO Categories (Name) VALUES (@cat)", new { cat });
+
+            // Keep active products categorized; detach invalid refs on inactive records.
+            var defaultCategoryId = connection.QuerySingle<int>(
+                "SELECT Id FROM Categories WHERE Name = 'Sets' LIMIT 1");
+
+            connection.Execute(@"
+                UPDATE Products
+                SET CategoryId = @defaultCategoryId
+                WHERE IsActive = 1
+                  AND (CategoryId IS NULL OR CategoryId NOT IN (
+                      SELECT Id FROM Categories
+                      WHERE Name IN ('Cardigans & Kaftans','Dresses','Jackets & Coats','Jumpsuits','Sets','Shirts')
+                  ));",
+                new { defaultCategoryId });
+
+            connection.Execute(@"
+                UPDATE Products
+                SET CategoryId = NULL
+                WHERE IsActive = 0
+                  AND CategoryId IS NOT NULL
+                  AND CategoryId NOT IN (
+                      SELECT Id FROM Categories
+                      WHERE Name IN ('Cardigans & Kaftans','Dresses','Jackets & Coats','Jumpsuits','Sets','Shirts')
+                  );");
+
+            // Remove all non-approved category rows.
+            connection.Execute(@"
+                DELETE FROM Categories
+                WHERE Name NOT IN ('Cardigans & Kaftans','Dresses','Jackets & Coats','Jumpsuits','Sets','Shirts');");
+
+            // Align stock movement history with current product stock to avoid ledger drift.
+            connection.Execute(@"
+                INSERT INTO StockMovements (ProductId, UserId, Type, Quantity, Note, CreatedAt)
+                SELECT p.Id,
+                       COALESCE((SELECT Id FROM Users WHERE Username = 'admin' LIMIT 1),
+                                (SELECT Id FROM Users ORDER BY Id LIMIT 1),
+                                1),
+                       'Adjustment',
+                       p.StockQuantity - COALESCE(SUM(CASE
+                           WHEN sm.Type IN ('Restock','Sale','Adjustment') THEN sm.Quantity
+                           ELSE 0
+                       END), 0),
+                       'Startup stock balance sync',
+                       datetime('now')
+                FROM Products p
+                LEFT JOIN StockMovements sm ON sm.ProductId = p.Id
+                GROUP BY p.Id
+                HAVING (p.StockQuantity - COALESCE(SUM(CASE
+                           WHEN sm.Type IN ('Restock','Sale','Adjustment') THEN sm.Quantity
+                           ELSE 0
+                       END), 0)) <> 0;");
 
             // Check and seed default users
             var insertUserSql = @"
