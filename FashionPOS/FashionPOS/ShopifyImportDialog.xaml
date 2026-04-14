@@ -1,0 +1,103 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="FashionPOS.Views.ShopifyImportDialog"
+        Title="Shopify Import"
+        Height="520" Width="500"
+        MinHeight="520" MinWidth="500"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="#131B2E">
+    <DockPanel>
+
+        <!-- TOP accent bar -->
+        <Rectangle DockPanel.Dock="Top" Height="4"
+                   Fill="#00AAFF"/>
+
+        <!-- BOTTOM buttons — docked first so they are always visible -->
+        <Border DockPanel.Dock="Bottom"
+                Background="#0D1526" Padding="24,16"
+                BorderBrush="#1E3050" BorderThickness="0,1,0,0">
+            <Grid>
+                <Button x:Name="CancelButton" Content="Cancel"
+                        HorizontalAlignment="Left"
+                        Width="100" Height="40"
+                        Background="Transparent"
+                        Foreground="#888"
+                        BorderBrush="#2A3A50"
+                        BorderThickness="1"
+                        Cursor="Hand"
+                        Click="CancelButton_Click"/>
+                <Button x:Name="ConnectButton" Content="Connect &amp; Import"
+                        HorizontalAlignment="Right"
+                        Width="160" Height="40"
+                        Background="#00AAFF" Foreground="White"
+                        FontWeight="Bold" BorderThickness="0"
+                        Cursor="Hand"
+                        Click="ConnectButton_Click"/>
+            </Grid>
+        </Border>
+
+        <!-- MAIN CONTENT — fills remaining space, scrollable -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="28,28,28,20">
+
+                <!-- Header -->
+                <TextBlock Text="Shopify import"
+                           FontSize="22" FontWeight="Bold"
+                           Foreground="White" Margin="0,0,0,6"/>
+                <TextBlock Text="Connect a Shopify store and pull products into inventory"
+                           FontSize="12" Foreground="#607090"
+                           Margin="0,0,0,28" TextWrapping="Wrap"/>
+
+                <!-- Shop Domain -->
+                <TextBlock Text="SHOP DOMAIN" FontSize="10"
+                           Foreground="#607090" FontWeight="Bold"
+                           Margin="0,0,0,6"/>
+                <TextBox x:Name="ShopDomainBox"
+                         Height="44" Padding="12,10"
+                         Background="#0D1526" Foreground="White"
+                         BorderBrush="#1E3050" BorderThickness="1"
+                         FontSize="13" CaretBrush="#00AAFF"
+                         Margin="0,0,0,6"/>
+                <TextBlock Text="e.g.  mystore.myshopify.com  (no https://)"
+                           FontSize="11" Foreground="#3A5070"
+                           Margin="0,0,0,20"/>
+
+                <!-- Access Token -->
+                <TextBlock Text="ACCESS TOKEN" FontSize="10"
+                           Foreground="#607090" FontWeight="Bold"
+                           Margin="0,0,0,6"/>
+                <PasswordBox x:Name="AccessTokenBox"
+                             Height="44" Padding="12,10"
+                             Background="#0D1526" Foreground="White"
+                             BorderBrush="#1E3050" BorderThickness="1"
+                             FontSize="13"
+                             Margin="0,0,0,6"/>
+                <TextBlock FontSize="11" Foreground="#3A5070"
+                           Margin="0,0,0,24" TextWrapping="Wrap">
+                    Get this from Shopify Admin → Settings → Apps
+                    → Develop apps → your app → API credentials → Admin API access token
+                </TextBlock>
+
+                <!-- Status / Progress -->
+                <Border x:Name="StatusPanel" Background="#0A1020"
+                        CornerRadius="6" Padding="14,10"
+                        BorderBrush="#1E3050" BorderThickness="1"
+                        Visibility="Collapsed">
+                    <StackPanel>
+                        <ProgressBar x:Name="ImportProgress"
+                                     Height="4" Background="#1E3050"
+                                     Foreground="#00AAFF"
+                                     IsIndeterminate="True"
+                                     Margin="0,0,0,8"/>
+                        <TextBlock x:Name="StatusText"
+                                   Text="Connecting..." Foreground="#00AAFF"
+                                   FontSize="12"/>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

@@ -1,0 +1,150 @@
+<UserControl x:Class="FashionPOS.InventoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource DarkBgBrush}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header Controls -->
+        <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="INVENTORY MASTER"
+                               Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="STOCK MONITORING // SKU TRACEABILITY // GLOBAL REPOSITORY"
+                               Style="{StaticResource SectionSubtitle}"
+                               Foreground="{StaticResource CyberCyanBrush}"
+                               FontWeight="Bold"
+                               Opacity="0.8"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <WrapPanel Grid.Column="1"
+                           Orientation="Horizontal"
+                           VerticalAlignment="Center"
+                           ItemHeight="48"
+                           HorizontalAlignment="Right"
+                           Margin="0,0,0,-6">
+                    <Button Content="NEW PRODUCT"
+                            Command="{Binding AddProductCommand}"
+                            Style="{StaticResource PrimaryButton}"
+                            Margin="0,0,12,12" />
+                    <Button Content="SHOPIFY IMPORT"
+                            Command="{Binding ImportShopifyCommand}"
+                            Style="{StaticResource AccentButton}"
+                            Margin="0,0,12,12" />
+                    <Button Content="IMPORT"
+                            Command="{Binding ImportExcelCommand}"
+                            Style="{StaticResource GhostButton}"
+                            Margin="0,0,12,12" />
+                    <Button Content="REFRESH"
+                            Command="{Binding RefreshCommand}"
+                            Style="{StaticResource GhostButton}"
+                            Margin="0,0,0,12" />
+                </WrapPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Product Table -->
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <DockPanel>
+                <!-- Search Tray -->
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackPanel>
+                        <TextBlock Text="GLOBAL STOCK SEARCH" Style="{StaticResource InputLabel}" />
+                        <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource ModernTextBox}"
+                                 Tag="Search by name, SKU or barcode..." />
+                    </StackPanel>
+                    
+                    <TextBlock Grid.Column="1" 
+                               Text="{Binding StatusMessage}"
+                               Foreground="{StaticResource CyberCyanBrush}"
+                               VerticalAlignment="Bottom"
+                               Margin="16,0,0,0"
+                               FontWeight="Bold"
+                               FontSize="11"
+                               Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}" />
+                </Grid>
+
+                <!-- Inventory Grid -->
+                <DataGrid ItemsSource="{Binding Products}"
+                          Style="{StaticResource ModernDataGrid}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="PRODUCT NAME" Binding="{Binding Name}" Width="2*" />
+                        <DataGridTextColumn Header="SKU ID" Binding="{Binding SKU}" Width="*" />
+                        <DataGridTextColumn Header="QTY" Binding="{Binding StockQuantity}" Width="80" />
+                        <DataGridTextColumn Header="PRICE" Binding="{Binding SellingPrice, StringFormat=C}" Width="120" />
+                        
+                        <DataGridTemplateColumn Header="STOCK LEVEL" Width="140">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Badge}">
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   FontSize="10"
+                                                   FontWeight="Black">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="NOMINAL" />
+                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsOutOfStock}" Value="True">
+                                                            <Setter Property="Text" Value="DEPLETED" />
+                                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsLowStock}" Value="True">
+                                                            <Setter Property="Text" Value="CRITICAL" />
+                                                            <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Header="OPERATIONS" Width="180">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <Button Content="EDIT"
+                                                Command="{Binding DataContext.EditProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource GhostButton}"
+                                                FontSize="11"
+                                                Padding="10,4"
+                                                Margin="0,0,6,0" />
+                                        <Button Content="DELETE"
+                                                Command="{Binding DataContext.DeleteProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource GhostButton}"
+                                                Foreground="{StaticResource DangerBrush}"
+                                                FontSize="11"
+                                                Padding="10,4" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

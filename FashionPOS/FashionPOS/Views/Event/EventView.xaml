@@ -1,0 +1,196 @@
+<UserControl x:Class="FashionPOS.EventView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource DarkBgBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <!-- Header Section -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel>
+                        <TextBlock Text="EVENT MODE" Style="{StaticResource SectionTitle}" />
+                        <TextBlock Text="ISOLATED SALES SESSION // LIVE BAZARS // POP-UP STORES"
+                                   Style="{StaticResource SectionSubtitle}"
+                                   Foreground="{StaticResource CyberCyanBrush}"
+                                   FontWeight="Bold"
+                                   Opacity="0.8"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1"
+                            Background="#1A3B82F6"
+                            BorderBrush="{StaticResource CyberBlueBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="16,6"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding HasActiveEvent, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Fill="{StaticResource CyberCyanBrush}" Width="8" Height="8" Margin="0,0,10,0">
+                                <Ellipse.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1" To="0.2" Duration="0:0:0.8" AutoReverse="True"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                            <TextBlock Text="SESSION ACTIVE" Foreground="White" FontWeight="Black" FontSize="11" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Event KPIs -->
+            <UniformGrid Columns="4" Margin="0,0,0,24">
+                <Border Style="{StaticResource StatCard}" Margin="0,0,16,0">
+                    <StackPanel>
+                        <TextBlock Text="SESSION REVENUE" Style="{StaticResource InputLabel}" />
+                        <TextBlock Text="{Binding ActiveEvent.TotalRevenue, StringFormat=C}"
+                                   Foreground="White"
+                                   FontSize="26"
+                                   FontWeight="Black" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource StatCard}" Margin="0,0,16,0">
+                    <StackPanel>
+                        <TextBlock Text="SESSION PROFIT" Style="{StaticResource InputLabel}" />
+                        <TextBlock Text="{Binding ActiveEvent.TotalProfit, StringFormat=C}"
+                                   Foreground="{StaticResource SuccessBrush}"
+                                   FontSize="26"
+                                   FontWeight="Black" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource StatCard}" Margin="0,0,16,0">
+                    <StackPanel>
+                        <TextBlock Text="UNITS SOLD" Style="{StaticResource InputLabel}" />
+                        <TextBlock Text="{Binding ActiveEvent.ItemsSold}"
+                                   Foreground="{StaticResource CyberBlueBrush}"
+                                   FontSize="26"
+                                   FontWeight="Black" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource StatCard}">
+                    <StackPanel>
+                        <TextBlock Text="TRANSACTIONS" Style="{StaticResource InputLabel}" />
+                        <TextBlock Text="{Binding ActiveEvent.TransactionCount}"
+                                   Foreground="{StaticResource WarningBrush}"
+                                   FontSize="26"
+                                   FontWeight="Black" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- Configuration & Status -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.5*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,16,0">
+                    <StackPanel>
+                        <TextBlock Text="SESSION CONTROLS" Style="{StaticResource SectionTitle}" FontSize="18" />
+                        
+                        <Grid Margin="0,20,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            
+                            <StackPanel Margin="0,0,0,16">
+                                <TextBlock Text="EVENT IDENTIFIER" Style="{StaticResource InputLabel}" />
+                                <TextBox Text="{Binding EventName, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ModernTextBox}"
+                                         IsEnabled="{Binding HasActiveEvent, Converter={StaticResource InverseBool}}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Margin="0,0,0,24">
+                                <TextBlock Text="PHYSICAL LOCATION" Style="{StaticResource InputLabel}" />
+                                <TextBox Text="{Binding EventLocation, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource ModernTextBox}"
+                                         IsEnabled="{Binding HasActiveEvent, Converter={StaticResource InverseBool}}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Orientation="Horizontal">
+                                <Button Content="INITIALIZE EVENT"
+                                        Command="{Binding StartEventCommand}"
+                                        Style="{StaticResource PrimaryButton}"
+                                        Width="180"
+                                        Margin="0,0,12,0"
+                                        Visibility="{Binding HasActiveEvent, Converter={StaticResource InverseBoolToVisibility}}" />
+                                <Button Content="TERMINATE SESSION"
+                                        Command="{Binding EndEventCommand}"
+                                        Style="{StaticResource GhostButton}"
+                                        Foreground="{StaticResource DangerBrush}"
+                                        BorderBrush="{StaticResource DangerBrush}"
+                                        Width="180"
+                                        Margin="0,0,12,0"
+                                        Visibility="{Binding HasActiveEvent, Converter={StaticResource BoolToVisibility}}" />
+                                <Button Content="REFRESH DATA"
+                                        Command="{Binding RefreshCommand}"
+                                        Style="{StaticResource GhostButton}"
+                                        Width="140" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="OPERATIONAL STATUS" Style="{StaticResource SectionTitle}" FontSize="18" />
+                        
+                        <Border Background="#111827" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="20" Margin="0,20,0,0">
+                            <StackPanel>
+                                <TextBlock FontWeight="Black" FontSize="11" Margin="0,0,0,12">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="NO ACTIVE SESSION DETECTED" />
+                                            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasActiveEvent}" Value="True">
+                                                    <Setter Property="Text" Value="EVENT MODE // LIVE" />
+                                                    <Setter Property="Foreground" Value="{StaticResource CyberCyanBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                
+                                <TextBlock Text="{Binding ActiveEvent.Name, TargetNullValue='N/A'}"
+                                           Foreground="White"
+                                           FontSize="16"
+                                           FontWeight="Black" />
+                                
+                                <TextBlock Text="{Binding StatusMessage}"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           FontSize="12"
+                                           TextWrapping="Wrap"
+                                           Margin="0,12,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="[SYSTEM NOTICE: ALL SALES IN EVENT MODE ARE ISOLATED FROM CORE KPIs UNTIL SESSION END]"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontSize="9"
+                                   FontWeight="Bold"
+                                   TextWrapping="Wrap"
+                                   Margin="4,16,0,0"
+                                   Opacity="0.6"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

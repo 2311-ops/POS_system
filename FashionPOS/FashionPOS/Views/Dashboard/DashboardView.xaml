@@ -1,0 +1,210 @@
+<UserControl x:Class="FashionPOS.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:FashionPOS.Converters"
+             Background="{StaticResource DarkBgBrush}">
+    <UserControl.Resources>
+        <conv:ProgressValueToWidthConverter x:Key="ProgressValueToWidthConverter" />
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="0,0,0,24">
+            <!-- Header Section -->
+            <Border Padding="0,0,0,32">
+                <StackPanel>
+                    <TextBlock Text="SYSTEM DASHBOARD"
+                               Style="{StaticResource SectionTitle}"
+                               Margin="0,0,0,4" />
+                    <TextBlock Text="OPERATIONAL INTELLIGENCE // REAL-TIME PERFORMANCE"
+                               Style="{StaticResource SectionSubtitle}"
+                               Foreground="{StaticResource CyberCyanBrush}"
+                               FontWeight="Bold"
+                               Opacity="0.8" />
+                </StackPanel>
+            </Border>
+
+            <!-- KPI Cards -->
+            <UniformGrid Columns="4" Margin="0,0,0,24">
+                <Border Style="{StaticResource StatCard}" Margin="0,0,16,0">
+                    <Grid>
+                        <!-- Animated Scanner Line -->
+                        <Path Fill="{StaticResource CyberCyanBrush}" Opacity="0.1" VerticalAlignment="Top" Height="2">
+                            <Path.Data>
+                                <RectangleGeometry Rect="0,0,1000,2" />
+                            </Path.Data>
+                            <Path.Triggers>
+                                <EventTrigger RoutedEvent="Loaded">
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <ThicknessAnimation Storyboard.TargetProperty="Margin" 
+                                                                From="0,0,0,0" To="0,80,0,0" 
+                                                                Duration="0:0:3" AutoReverse="True" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </EventTrigger>
+                            </Path.Triggers>
+                        </Path>
+                        
+                        <StackPanel>
+                            <TextBlock Text="TOTAL REVENUE" Style="{StaticResource InputLabel}" />
+                            <TextBlock Text="{Binding Stats.TodaySales, StringFormat=C}"
+                                       Foreground="White"
+                                       FontSize="28"
+                                       FontWeight="Black" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource StatCard}" Margin="0,0,16,0">
+                    <StackPanel>
+                        <TextBlock Text="NET PROFIT" Style="{StaticResource InputLabel}" />
+                        <TextBlock Text="{Binding Stats.TodayProfit, StringFormat=C}"
+                                   Foreground="{StaticResource SuccessBrush}"
+                                   FontSize="28"
+                                   FontWeight="Black" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource StatCard}" Margin="0,0,16,0">
+                    <StackPanel>
+                        <TextBlock Text="TRANSACTIONS" Style="{StaticResource InputLabel}" />
+                        <TextBlock Text="{Binding Stats.TodayTransactions}"
+                                   Foreground="{StaticResource CyberBlueBrush}"
+                                   FontSize="28"
+                                   FontWeight="Black" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource StatCard}">
+                    <StackPanel>
+                        <TextBlock Text="LOW STOCK ALERTS" Style="{StaticResource InputLabel}" />
+                        <TextBlock Text="{Binding Stats.LowStockCount}"
+                                   Foreground="{StaticResource WarningBrush}"
+                                   FontSize="28"
+                                   FontWeight="Black" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- Lower Sections -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Sales Pulse Chart/Bars -->
+                <Border Style="{StaticResource Card}" Margin="0,0,16,0">
+                    <StackPanel>
+                        <TextBlock Text="SALES PULSE" Style="{StaticResource SectionTitle}" FontSize="18" />
+                        <TextBlock Text="DAILY ACTIVITY TRACKING"
+                                   Style="{StaticResource SectionSubtitle}"
+                                   Margin="0,4,0,24" />
+
+                        <StackPanel>
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="REVENUE" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontWeight="Bold" FontSize="11"/>
+                                <Border x:Name="RevenueTrack" Grid.Column="1" Background="#1E2535" Height="10" CornerRadius="5" Margin="12,0">
+                                    <Border Background="{StaticResource CyberGradient}" CornerRadius="5" HorizontalAlignment="Left">
+                                        <Border.Width>
+                                            <MultiBinding Converter="{StaticResource ProgressValueToWidthConverter}" ConverterParameter="50000">
+                                                <Binding Path="Stats.TodaySales" />
+                                                <Binding ElementName="RevenueTrack" Path="ActualWidth" />
+                                            </MultiBinding>
+                                        </Border.Width>
+                                        <Border.Effect>
+                                            <DropShadowEffect Color="{StaticResource CyberCyan}" BlurRadius="8" ShadowDepth="0" Opacity="0.3" />
+                                        </Border.Effect>
+                                    </Border>
+                                </Border>
+                                <TextBlock Grid.Column="2" Text="{Binding Stats.TodaySales, StringFormat=C}" Foreground="White" FontWeight="Bold" />
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="PROFIT" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontWeight="Bold" FontSize="11"/>
+                                <Border x:Name="ProfitTrack" Grid.Column="1" Background="#1E2535" Height="10" CornerRadius="5" Margin="12,0">
+                                    <Border Background="{StaticResource SuccessBrush}" CornerRadius="5" HorizontalAlignment="Left">
+                                        <Border.Width>
+                                            <MultiBinding Converter="{StaticResource ProgressValueToWidthConverter}" ConverterParameter="10000">
+                                                <Binding Path="Stats.TodayProfit" />
+                                                <Binding ElementName="ProfitTrack" Path="ActualWidth" />
+                                            </MultiBinding>
+                                        </Border.Width>
+                                        <Border.Effect>
+                                            <DropShadowEffect Color="#22C55E" BlurRadius="8" ShadowDepth="0" Opacity="0.3" />
+                                        </Border.Effect>
+                                    </Border>
+                                </Border>
+                                <TextBlock Grid.Column="2" Text="{Binding Stats.TodayProfit, StringFormat=C}" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold" />
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="120" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="TRANSACTIONS" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" FontWeight="Bold" FontSize="11"/>
+                                <Border x:Name="TransactionsTrack" Grid.Column="1" Background="#1E2535" Height="10" CornerRadius="5" Margin="12,0">
+                                    <Border Background="{StaticResource CyberBlueBrush}" CornerRadius="5" HorizontalAlignment="Left">
+                                        <Border.Width>
+                                            <MultiBinding Converter="{StaticResource ProgressValueToWidthConverter}" ConverterParameter="200">
+                                                <Binding Path="Stats.TodayTransactions" />
+                                                <Binding ElementName="TransactionsTrack" Path="ActualWidth" />
+                                            </MultiBinding>
+                                        </Border.Width>
+                                        <Border.Effect>
+                                            <DropShadowEffect Color="#3B82F6" BlurRadius="8" ShadowDepth="0" Opacity="0.3" />
+                                        </Border.Effect>
+                                    </Border>
+                                </Border>
+                                <TextBlock Grid.Column="2" Text="{Binding Stats.TodayTransactions}" Foreground="White" FontWeight="Bold" />
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Stock Warnings -->
+                <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="STOCK WARNINGS" Style="{StaticResource SectionTitle}" FontSize="18" />
+                        <TextBlock Text="INVENTORY ALERTS"
+                                   Style="{StaticResource SectionSubtitle}"
+                                   Margin="0,4,0,20" />
+
+                        <Border Background="#1A22C55E" BorderBrush="{StaticResource SuccessBrush}" BorderThickness="1" CornerRadius="10" Padding="16" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="ALL SYSTEMS NOMINAL" Foreground="{StaticResource SuccessBrush}" FontWeight="Bold" FontSize="11"/>
+                                <TextBlock Text="No critical errors detected in the current session." Foreground="White" Opacity="0.8" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="#1AF59E0B" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="10" Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="ATTENTION REQUIRED" Foreground="{StaticResource WarningBrush}" FontWeight="Bold" FontSize="11"/>
+                                <TextBlock Text="{Binding Stats.LowStockCount, StringFormat='{}{0} products are below safety threshold.'}" 
+                                           Foreground="White" Opacity="0.8" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Footer Action -->
+            <Button Content="SYSTEM REFRESH"
+                    Command="{Binding RefreshCommand}"
+                    Style="{StaticResource GhostButton}"
+                    HorizontalAlignment="Left" 
+                    Margin="0,24,0,0"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

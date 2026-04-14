@@ -1,0 +1,140 @@
+<UserControl x:Class="FashionPOS.UsersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource DarkBgBrush}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="USER MANAGEMENT"
+                               Style="{StaticResource SectionTitle}" />
+                    <TextBlock Text="IDENTITY // PERMISSIONS // ACCESS CONTROL"
+                               Style="{StaticResource SectionSubtitle}"
+                               Foreground="{StaticResource CyberBlueBrush}"
+                               FontWeight="Bold"
+                               Opacity="0.8"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <Button Content="CREATE NEW USER"
+                            Command="{Binding AddUserCommand}"
+                            Style="{StaticResource PrimaryButton}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main User List -->
+        <Border Grid.Row="1" Style="{StaticResource Card}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top"
+                           Text="{Binding StatusMessage}"
+                           Style="{StaticResource SectionSubtitle}"
+                           Foreground="{StaticResource CyberCyanBrush}"
+                           Margin="0,0,0,16"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}" />
+
+                <DataGrid ItemsSource="{Binding Users}"
+                          Style="{StaticResource ModernDataGrid}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="FULL NAME" Binding="{Binding FullName}" Width="2*" />
+                        <DataGridTextColumn Header="USERNAME" Binding="{Binding Username}" Width="*" />
+                        
+                        <DataGridTemplateColumn Header="ROLE" Width="140">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Badge}" BorderBrush="{StaticResource CyberBlueBrush}" Opacity="0.9">
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   FontSize="10"
+                                                   FontWeight="Black">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="{Binding Role}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Role}" Value="Owner">
+                                                            <Setter Property="Foreground" Value="{StaticResource CyberCyanBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Role}" Value="Manager">
+                                                            <Setter Property="Foreground" Value="{StaticResource CyberBlueBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Role}" Value="Cashier">
+                                                            <Setter Property="Foreground" Value="White" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        
+                        <DataGridTemplateColumn Header="STATUS" Width="120">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Badge}">
+                                        <TextBlock HorizontalAlignment="Center"
+                                                   FontSize="10"
+                                                   FontWeight="Black">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="ACTIVE" />
+                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                            <Setter Property="Text" Value="INACTIVE" />
+                                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Header="OPERATIONS" Width="200">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <Button Content="EDIT"
+                                                Command="{Binding DataContext.EditUserCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource GhostButton}"
+                                                FontSize="11"
+                                                Padding="12,4"
+                                                Margin="0,0,8,0" />
+                                        <Button Content="DELETE"
+                                                Command="{Binding DataContext.DeleteUserCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource GhostButton}"
+                                                Foreground="{StaticResource DangerBrush}"
+                                                FontSize="11"
+                                                Padding="12,4" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>
